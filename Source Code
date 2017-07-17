@@ -1,1 +1,171 @@
+// 1. Text strings =====================================================================================================
+//    Modify these strings and messages to change the behavior of your Lambda function
+'use strict';
+
+// Use the Alexa SDK
+const Alexa = require('alexa-sdk');
+var APP_ID = undefined;// amzn1.ask.skill.7c6937d8-b29a-428b-9eb5-f1085ff32b91;
+var SKILL_NAME = "REAN Cloud";
+var SNS = new AWS.SNS();
+	
+// A variable to hold the text message
+var bodyText;
+
+// Store messages used for this skill
+const skillMessages = {
+	'welcome'       :'Welcome to RAIN Cloud. Are you an employee, visitor, delivery personnel, or here for an interview?',
+    'staff' 		:'HR personnel will open the door very shortly.Thank you',
+	'visitor'  		:'Standby. HR personnel will open the door shortly. Thanks.',
+    'interview' 	:'Please wait. HR personnel will open the door shortly. Thank you',
+	'delivery'      :'Do you need someone to sign-off?',
+    'nowOutput'     :'Standby. HR Personnel will be at the front shortly. Thanks.',
+    'laterOutput'   :'Thank you. Please leave the item here and someone will pick it up later.',
+	'help'			:'You can say staff, visitor, or delivery personnel?', 
+	'goodbyeMsg'	:'Thank you for visiting RAIN. Have a good day!'
+};
+
+// Messages that will be sent to Jessica
+const textMsg = {
+	'staffMsg'		:'Jessica, a REAN employee is waiting for the door to be opened.',
+	'interviewMsg'	:'Jessica, a person is waiting outside the door for their interview',
+	'clientMsg'		:'Jessica, a client is waiting at the door',
+	'visitorMsg'	:'Jessica, a visitor is waiting at the entrance.',
+	'deliveryMsg'	:'Jessica, a delivery personnel is waiting at the front for a package to be signed.',
+	'pickUpMsg'		:'Jessica, a package has been placed outside to be picked up later.', 
+	'maintanenceMsg':'Jessica, a maintanence worker is waiting outside the door.'
+};
+
+// 2. Skill Code =======================================================================================================
+
+// Handler function(s)	
+var handlers = {
+	
+	// Launch request will be used when user invokes command
+	'LaunchRequest': function () {
+		this.emit('OpenDoorIntent');
+	},
+	
+	// OpenDoor intent 
+    'OpenDoorIntent': function () {
+		
+		// Welcome message
+		this.emit(':ask', skillMessages.welcome);
+	
+		var staff = isSlotValid(this.event.request.Guests, "Staff");
+		var visitor = isSlotValid(this.event.request.Guests, "Visitor");
+		var delivery = isSlotValid(this.event.request.Guests, "Delivery personnel");
+		var client = isSlotValid(this.event.request.Guests, "Client");
+		var maintenance = isSlotValid(this.event.request.Guests, "Maintenance");
+		var interview = isSlotValid(this.event.request.Guests, "Interview");
+
+		// If guest is a staff	
+		if (staff) {
+    		this.emit(':tell', skillMessages.staff);
+			bodyText = textMsg.staffMsg 
+			publish(message);	
+		}
+		
+		// If guest is a visitor
+		else if (visitor) {
+			this.emit(':tell', skillMessages.visitor);
+			bodyText = textMsg.clientMsg;
+			publish(message);	
+		}
+		
+		// If guest is a delivery personnel
+		else if (delivery) {
+			this.emit(':ask', skillMessages.deliveryOutput);
+		}
+
+		// If guest is an interview person
+		else if (interview) {
+			this.emit(':tell', skillMessages.interview);
+			bodyText = textMsg.interviewMsg;
+			publish(bodyText);
+		}
+
+		// If guest is a client
+		else if (client) {
+			this.emit(':tell', skillMessages.interview);
+			bodyText = textMsg.interviewMsg;
+			publish(bodyText);
+		}
+
+		// If guest is here for maintanence
+		else if (maintanence) {
+			this.emit(':tell', skillMessages.visitor);
+			bodyText = textMsg.maintanenceMsg;
+			publish(bodyText);
+		}
+	},
+
+	'AMAZON.HelpIntent': function () {
+		this.emit('OpenDoorIntent ()');
+	},
+	'AMAZON.StartOverIntent': function () {
+		this.emit ('OpenDoorIntent ()');
+	},
+	'AMAZON.YesIntent': function () {
+		this.emit(':tell', skillMessages.nowOutput);
+		bodyText = textMsg.deliveryMsg;
+		publish(bodyText); 	
+	},
+	'AMAZON.NoIntent': function () {
+		this.emit(':tell', skillMessages.laterOutput);
+		bodyText = textMsg.pickUpMsg;
+		publish(bodyText);
+	},
+	'AMAZON.StopIntent': function () {
+		this.emit(':tell', skillMessages.goodbyeMsg);
+	},
+	'AMAZON.CancelIntent': function () {
+		this.emit(':tell', skillMessages.goodbyeMsg);
+	}
+};
+
+// Register and execute handlers
+exports.handler = function(event, context, callback) {
+    var alexa = Alexa.handler(event, context);
+	alexa.APP_ID = APP_ID;
+	alexa.registerHandlers(handlers);
+	alexa.execute();
+}; 
+
+//    END of Intent Handlers {} ========================================================================================
+// 3. Helper Function(s)  =================================================================================================
+
+//A function to validate slot value
+function isSlotValid(request, slotName){
+        var slot = request.intent.Guests[slotName];
+        
+        //if we have a slot, get the text and store it into speechOutput
+        if (slot && slot.value) {
+            //we have a value in the slot
+            return true;
+        }
+		else {
+            //we didn't get a value in the slot.
+            return false;
+		}
+};
+
+// A function to publish to topic
+// Then send to Jessica via SMS
+function publish(mesg) {
+
+	var publishParams = { 
+		TopicArn: config.TopicArn,//arn:aws:sns:us-east-1:236334646492:ReanDoor,
+		Message: mesg
+ 	};
+
+	sns.publish(params, function (err, data) {
+		if (err) {
+    		console.log(err);
+      		response.tell('Sorry, it failed.');
+    	} 
+		else {
+      		response.tell(done);
+    	}
+	})
+};
 
